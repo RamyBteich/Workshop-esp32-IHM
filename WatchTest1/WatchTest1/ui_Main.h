@@ -10,14 +10,17 @@
 extern "C" {
 #endif
 
+// SCREEN: ui_Main
 extern void ui_Main_screen_init(void);
 extern void ui_Main_screen_destroy(void);
-extern () void ui_event_Main(lv_event_t * e);
+extern void ui_event_Main(lv_event_t * e);
 extern lv_obj_t * ui_Main;
 extern lv_obj_t * ui_Label1;
+// CUSTOM VARIABLES
 
 #ifdef __cplusplus
 } /*extern "C"*/
 #endif
 
 #endif
+

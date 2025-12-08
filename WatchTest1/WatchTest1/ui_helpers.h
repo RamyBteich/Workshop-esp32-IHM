@@ -15,10 +15,7 @@ extern "C" {
 #define _UI_TEMPORARY_STRING_BUFFER_SIZE 32
 #define _UI_BAR_PROPERTY_VALUE 0
 #define _UI_BAR_PROPERTY_VALUE_WITH_ANIM 1
-void _a 
-
-
-ui_bar_set_property(lv_obj_t * target, int id, int val);
+void _ui_bar_set_property(lv_obj_t * target, int id, int val);
 
 #define _UI_BASIC_PROPERTY_POSITION_X 0
 #define _UI_BASIC_PROPERTY_POSITION_Y 1

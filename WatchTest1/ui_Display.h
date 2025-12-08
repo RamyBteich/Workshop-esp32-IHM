@@ -3,16 +3,16 @@
 // LVGL version: 8.3.11
 // Project name: WatchTest1
 
-#ifndef UI_SCREEN2_H
-#define UI_SCREEN2_H
+#ifndef UI_DISPLAY_H
+#define UI_DISPLAY_H
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-// SCREEN: ui_Screen2
-extern void ui_Screen2_screen_init(void);
-extern void ui_Screen2_screen_destroy(void);
+// SCREEN: ui_Display
+extern void ui_Display_screen_init(void);
+extern void ui_Display_screen_destroy(void);
 extern void ui_event_Display(lv_event_t * e);
 extern lv_obj_t * ui_Display;
 extern lv_obj_t * ui_Label2;
