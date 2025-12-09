@@ -24,7 +24,7 @@ Le sketch inclut les fichiers suivants :
 
 ---
 
-## 🌐 Configuration réseau et MQTT (début du fichier)
+## Configuration réseau et MQTT (début du fichier)
 
 ```cpp
 #define WIFI_SSID        "labo-stagiaire"
