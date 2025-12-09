@@ -29,16 +29,24 @@ void ui_State_screen_init(void)
 {
     ui_State = lv_obj_create(NULL);
     lv_obj_clear_flag(ui_State, LV_OBJ_FLAG_SCROLLABLE);      /// Flags
-    lv_obj_set_style_bg_color(ui_State, lv_color_hex(0x000000), LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_bg_opa(ui_State, 255, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_img_src(ui_State, &ui_img_596472271, LV_PART_MAIN | LV_STATE_DEFAULT);
 
     ui_TextArea1 = lv_textarea_create(ui_State);
-    lv_obj_set_width(ui_TextArea1, 150);
-    lv_obj_set_height(ui_TextArea1, 70);
+    lv_obj_set_width(ui_TextArea1, 313);
+    lv_obj_set_height(ui_TextArea1, 85);
     lv_obj_set_x(ui_TextArea1, 0);
-    lv_obj_set_y(ui_TextArea1, -50);
+    lv_obj_set_y(ui_TextArea1, -60);
     lv_obj_set_align(ui_TextArea1, LV_ALIGN_CENTER);
     lv_textarea_set_placeholder_text(ui_TextArea1, "Placeholder...");
+    lv_obj_set_style_bg_color(ui_TextArea1, lv_color_hex(0x6D5D5D), LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_opa(ui_TextArea1, 255, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_img_opa(ui_TextArea1, 1, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_border_color(ui_TextArea1, lv_color_hex(0x6D5D5D), LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_border_opa(ui_TextArea1, 255, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_blend_mode(ui_TextArea1, LV_BLEND_MODE_MULTIPLY, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_opa(ui_TextArea1, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+
+    lv_obj_set_style_text_font(ui_TextArea1, &lv_font_montserrat_18, LV_PART_TEXTAREA_PLACEHOLDER | LV_STATE_DEFAULT);
 
     ui_Label2 = lv_label_create(ui_State);
     lv_obj_set_width(ui_Label2, LV_SIZE_CONTENT);   /// 1

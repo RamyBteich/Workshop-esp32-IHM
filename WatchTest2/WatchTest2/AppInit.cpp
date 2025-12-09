@@ -2,13 +2,9 @@
 
 #include <lvgl.h>
 
-#include "Audio_PCM5101.h"
 #include "Display_SPD2010.h"
-#include "Gyro_QMI8658.h"
 #include "I2C_Driver.h"
 #include "LVGL_Driver.h"
-#include "RTC_PCF85063.h"
-#include "SD_Card.h"
 #include "SwitchControl.h"
 #include "TCA9554PWR.h"
 #include "ui.h"

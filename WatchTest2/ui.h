@@ -25,6 +25,9 @@ extern "C" {
 // EVENTS
 extern lv_obj_t * ui____initial_actions0;
 
+// IMAGES AND IMAGE SETS
+LV_IMG_DECLARE(ui_img_596472271);    // assets/Screenshot from 2025-12-08 16-21-11.png
+
 // UI INIT
 void ui_init(void);
 void ui_destroy(void);

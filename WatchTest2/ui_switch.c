@@ -24,8 +24,7 @@ void ui_switch_screen_init(void)
 {
     ui_switch = lv_obj_create(NULL);
     lv_obj_clear_flag(ui_switch, LV_OBJ_FLAG_SCROLLABLE);      /// Flags
-    lv_obj_set_style_bg_color(ui_switch, lv_color_hex(0x6D5D5D), LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_bg_opa(ui_switch, 255, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_img_src(ui_switch, &ui_img_596472271, LV_PART_MAIN | LV_STATE_DEFAULT);
 
     ui_Switch1 = lv_switch_create(ui_switch);
     lv_obj_set_width(ui_Switch1, 200);

@@ -14,7 +14,6 @@
 #include <cstdlib>
 #include <esp_heap_caps.h>
 
-// Network credentials
 #define WIFI_SSID        "labo-stagiaire"
 #define WIFI_PASSWORD    "Uk0IHXsaTt4u"
 #define MQTT_BROKER_HOST "192.168.7.13"
@@ -63,48 +62,8 @@ static void touch_read(lv_indev_drv_t * indev_drv, lv_indev_data_t * data)
     }
     data->continue_reading = false;
 }
-
-static void updateStatusText(void)
-{
-    if(!ui_TextArea1) {
-        return;
-    }
-
-    char buffer[64];
-    snprintf(buffer, sizeof(buffer), "WiFi: %s\nMQTT: %s",
-             wifiConnected ? "connected" : "disconnected",
-             mqttConnected ? "connected" : "disconnected");
-    lv_textarea_set_text(ui_TextArea1, buffer);
-}
-
-static void updateLampSwitch(bool on)
-{
-    if(!ui_offon_all_lamps) {
-        return;
-    }
-
-    suppressSwitchEvent = true;
-    if(on) {
-        lv_obj_add_state(ui_offon_all_lamps, LV_STATE_CHECKED);
-    } else {
-        lv_obj_clear_state(ui_offon_all_lamps, LV_STATE_CHECKED);
-    }
-    lv_obj_invalidate(ui_offon_all_lamps);
-    suppressSwitchEvent = false;
-}
-
-static void refreshConnectionStatus(void)
-{
-    const bool currentWifi = WiFi.status() == WL_CONNECTED;
-    const bool currentMqtt = mqttClient.connected();
-
-    if(currentWifi != wifiConnected || currentMqtt != mqttConnected) {
-        wifiConnected = currentWifi;
-        mqttConnected = currentMqtt;
-        updateStatusText();
-    }
-}
-
+//////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////
 static void connectToWiFi(void)
 {
     if(WiFi.status() == WL_CONNECTED) {
@@ -132,31 +91,57 @@ static void connectToMQTT(void)
     }
 }
 
-static void onMQTTMessage(char * topic, byte * payload, unsigned int length)
+static void updateStatusText(void)
 {
-    if(!topic || strncmp(topic, MQTT_TOPIC_STATUS, sizeof(MQTT_TOPIC_STATUS) - 1) != 0) {
+    if(!ui_TextArea1) {
         return;
     }
 
-    char message[32];
-    const unsigned int copyLen = (length < sizeof(message) - 1) ? length : sizeof(message) - 1;
-    memcpy(message, payload, copyLen);
-    message[copyLen] = '\0';
+    char buffer[64];
+    snprintf(buffer, sizeof(buffer), "WiFi: %s\nMQTT: %s",
+             wifiConnected ? "connected" : "disconnected",
+             mqttConnected ? "connected" : "disconnected");
+    lv_textarea_set_text(ui_TextArea1, buffer);
+}
+static void refreshConnectionStatus(void)
+{
+    const bool currentWifi = WiFi.status() == WL_CONNECTED;
+    const bool currentMqtt = mqttClient.connected();
 
-    for(char * c = message; *c; ++c) {
-        *c = static_cast<char>(tolower(*c));
+    if(currentWifi != wifiConnected || currentMqtt != mqttConnected) {
+        wifiConnected = currentWifi;
+        mqttConnected = currentMqtt;
+        updateStatusText();
     }
+}
 
-    bool newState = lampState;
-    if(strcmp(message, "on") == 0 || strcmp(message, "1") == 0) {
-        newState = true;
-    } else if(strcmp(message, "off") == 0 || strcmp(message, "0") == 0) {
-        newState = false;
+//////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////
+
+static void updateLampSwitch(bool on)
+{
+    if(!ui_offon_all_lamps) {
+        return;
+    }
+    suppressSwitchEvent = true;
+    if(on) {
+        lv_obj_add_state(ui_offon_all_lamps, LV_STATE_CHECKED);
     } else {
-        return;
+        lv_obj_clear_state(ui_offon_all_lamps, LV_STATE_CHECKED);
     }
+    lv_obj_invalidate(ui_offon_all_lamps);
+    suppressSwitchEvent = false;
+}
 
-    if(newState != lampState) {
+
+static void onMQTTMessage(char* topic, byte* payload, unsigned int length)
+{
+    if (!topic || strcmp(topic, MQTT_TOPIC_STATUS) != 0)
+        return;
+
+    bool newState = (strncmp((char*)payload, "on", 2) == 0);
+
+    if (newState != lampState) {
         lampState = newState;
         updateLampSwitch(lampState);
     }

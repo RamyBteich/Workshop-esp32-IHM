@@ -31,7 +31,7 @@ void ui_Second_screen_init(void)
     lv_obj_set_x(ui_Label2, 0);
     lv_obj_set_y(ui_Label2, -40);
     lv_obj_set_align(ui_Label2, LV_ALIGN_CENTER);
-    lv_label_set_text(ui_Label2, "     Press back the button \nto go back to the Main page ");
+    lv_label_set_text(ui_Label2, "               swipe back \nto go back to the Main page ");
 
     lv_obj_add_event_cb(ui_Second, ui_event_Second, LV_EVENT_ALL, NULL);
 
