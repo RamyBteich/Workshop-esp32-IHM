@@ -280,10 +280,15 @@
                 "strval": "DEFAULT",
                 "childs": [
                   {
-                    "nid": 10610,
-                    "strtype": "_style/Bg_Image",
-                    "strval": "assets/Screenshot from 2025-12-08 16-21-11.png",
-                    "InheritedType": 5
+                    "nid": 10520,
+                    "strtype": "_style/Bg_Color",
+                    "intarray": [
+                      78,
+                      78,
+                      78,
+                      255
+                    ],
+                    "InheritedType": 7
                   }
                 ],
                 "InheritedType": 1
@@ -900,10 +905,15 @@
                 "strval": "DEFAULT",
                 "childs": [
                   {
-                    "nid": 10610,
-                    "strtype": "_style/Bg_Image",
-                    "strval": "assets/Screenshot from 2025-12-08 16-21-11.png",
-                    "InheritedType": 5
+                    "nid": 10520,
+                    "strtype": "_style/Bg_Color",
+                    "intarray": [
+                      78,
+                      78,
+                      78,
+                      255
+                    ],
+                    "InheritedType": 7
                   }
                 ],
                 "InheritedType": 1
@@ -1315,10 +1325,24 @@
                 "strval": "DEFAULT",
                 "childs": [
                   {
-                    "nid": 10610,
-                    "strtype": "_style/Bg_Image",
-                    "strval": "assets/Screenshot from 2025-12-08 16-21-11.png",
-                    "InheritedType": 5
+                    "nid": 10520,
+                    "strtype": "_style/Bg_Color",
+                    "intarray": [
+                      78,
+                      78,
+                      78,
+                      255
+                    ],
+                    "InheritedType": 7
+                  },
+                  {
+                    "nid": 10540,
+                    "strtype": "_style/Bg_gradient_params",
+                    "intarray": [
+                      0,
+                      255
+                    ],
+                    "InheritedType": 7
                   }
                 ],
                 "InheritedType": 1
@@ -1331,7 +1355,27 @@
           },
           {
             "part": "lv.PART.SCROLLBAR",
-            "childs": [],
+            "childs": [
+              {
+                "nid": 10000,
+                "strtype": "_style/StyleState",
+                "strval": "DEFAULT",
+                "childs": [
+                  {
+                    "nid": 10520,
+                    "strtype": "_style/Bg_Color",
+                    "intarray": [
+                      78,
+                      78,
+                      78,
+                      255
+                    ],
+                    "InheritedType": 7
+                  }
+                ],
+                "InheritedType": 1
+              }
+            ],
             "nid": 1050,
             "strtype": "SCREEN/Style_scrollbar",
             "strval": "lv.PART.SCROLLBAR, Rectangle, Pad",
@@ -1458,7 +1502,7 @@
     "uiExportFolderPath": "/home/ramy/Desktop/WorkShop/Workshop-esp32-IHM/WatchTest2/",
     "projectExportFolderPath": "/home/ramy/Desktop/WorkShop/Workshop-esp32-IHM/WatchTest2/",
     "custom_variable_prefix": "uic",
-    "backup_cnt": 3,
+    "backup_cnt": 8,
     "autosave_cnt": 0,
     "group_color_cnt": 0,
     "lvgl_version": "8.3.11",

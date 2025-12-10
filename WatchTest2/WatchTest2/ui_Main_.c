@@ -24,7 +24,8 @@ void ui_Main__screen_init(void)
 {
     ui_Main_ = lv_obj_create(NULL);
     lv_obj_clear_flag(ui_Main_, LV_OBJ_FLAG_SCROLLABLE);      /// Flags
-    lv_obj_set_style_bg_img_src(ui_Main_, &ui_img_596472271, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_color(ui_Main_, lv_color_hex(0x4E4E4E), LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_opa(ui_Main_, 255, LV_PART_MAIN | LV_STATE_DEFAULT);
 
     ui_Label1 = lv_label_create(ui_Main_);
     lv_obj_set_width(ui_Label1, LV_SIZE_CONTENT);   /// 1

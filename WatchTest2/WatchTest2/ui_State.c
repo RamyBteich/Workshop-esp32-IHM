@@ -29,7 +29,8 @@ void ui_State_screen_init(void)
 {
     ui_State = lv_obj_create(NULL);
     lv_obj_clear_flag(ui_State, LV_OBJ_FLAG_SCROLLABLE);      /// Flags
-    lv_obj_set_style_bg_img_src(ui_State, &ui_img_596472271, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_color(ui_State, lv_color_hex(0x4E4E4E), LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_opa(ui_State, 255, LV_PART_MAIN | LV_STATE_DEFAULT);
 
     ui_TextArea1 = lv_textarea_create(ui_State);
     lv_obj_set_width(ui_TextArea1, 313);

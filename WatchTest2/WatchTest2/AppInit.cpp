@@ -18,216 +18,271 @@
 #include <cstdio>
 #include <cstring>
 
-#ifndef WIFI_SSID
-#define WIFI_SSID "labo-stagiaire"
-#endif
+// ===============================
+// WiFi / MQTT configuration
+// ===============================
 
-#ifndef WIFI_PASSWORD
-#define WIFI_PASSWORD "Uk0IHXsaTt4u"
-#endif
+// --- WiFi configuration ---
+#define WIFI_SSID        "labo-stagiaire"
+#define WIFI_PASSWORD    "Uk0IHXsaTt4u"
 
-#ifndef MQTT_BROKER
-#define MQTT_BROKER "192.168.7.13"
-#endif
+// --- MQTT configuration ---
+#define MQTT_BROKER_HOST "192.168.7.13"
+#define MQTT_BROKER_PORT 1883
+#define MQTT_CLIENT_ID   "rbteich"
+#define MQTT_USERNAME    NULL
+#define MQTT_PASSWORD    NULL
 
-#ifndef MQTT_PORT
-#define MQTT_PORT 1883
-#endif
+// --- MQTT Topics ---
+static const char MQTT_TOPIC_STATUS[]  = "api/3/room/C102/lamp/all/id/1/indication";
+static const char MQTT_TOPIC_REQUEST[] = "api/3/room/C102/lamp/all/id/1/request";
 
-#ifndef MQTT_CLIENT_ID
-#define MQTT_CLIENT_ID "rbteich-2"
-#endif
+// ===============================
+// Global objects / state
+// ===============================
 
-#ifndef MQTT_USERNAME
-#define MQTT_USERNAME NULL
-#endif
+static WiFiClient wifiClient;
+static PubSubClient mqttClient(wifiClient);
 
-#ifndef MQTT_PASSWORD
-#define MQTT_PASSWORD NULL
-#endif
+static char mqttClientId[32];
 
-#ifndef MQTT_STATUS_TOPIC
-#define MQTT_STATUS_TOPIC "api/3/room/C102/lamp/all/id/1/indication"
-#endif
+// Global state flags
+static bool wifiConnected     = false;
+static bool mqttConnected     = false;
+static bool lampState         = false;  // ON/OFF state of lamp
+static bool suppressSwitchEvt = false;  // avoid feedback loops
 
-#ifndef MQTT_REQUEST_TOPIC
-#define MQTT_REQUEST_TOPIC "api/3/room/C102/lamp/all/id/1/request"
-#endif
+// WiFi retry timer
+static const unsigned long WIFI_RETRY_DELAY_MS = 5000;
+static unsigned long lastWifiAttempt           = 0;
 
-static WiFiClient s_wifi_client;
-static PubSubClient s_mqtt_client(s_wifi_client);
-
-static char s_mqtt_client_id[32];
-static constexpr const char * s_mqtt_broker = MQTT_BROKER;
-static constexpr const char * s_mqtt_status_topic = MQTT_STATUS_TOPIC;
-static constexpr const char * s_mqtt_request_topic = MQTT_REQUEST_TOPIC;
-
-static constexpr unsigned long s_mqtt_reconnect_interval_ms = 5000;
-static unsigned long s_last_mqtt_reconnect = 0;
-
-enum class ConnectionState : int {
-  BrokerNotConfigured = -1,
-  Disconnected = 0,
-  Connected = 1,
-};
-
-static ConnectionState s_last_connection_state = ConnectionState::BrokerNotConfigured;
-static bool s_force_status_update = true;
-
+// ===============================
+// Helper: prepare unique MQTT client ID
+// ===============================
 static void prepare_mqtt_client_id()
 {
-  uint64_t chipid = ESP.getEfuseMac();
-  uint32_t short_id = static_cast<uint32_t>(chipid & 0xFFFFFFFF);
-  snprintf(s_mqtt_client_id, sizeof(s_mqtt_client_id), "%s-%08X", MQTT_CLIENT_ID, short_id);
+    uint64_t chipid = ESP.getEfuseMac();
+    uint32_t short_id = static_cast<uint32_t>(chipid & 0xFFFFFFFF);
+    snprintf(mqttClientId, sizeof(mqttClientId), "%s-%08X", MQTT_CLIENT_ID, short_id);
 }
 
-static ConnectionState compute_connection_state()
+// ===============================
+// UI: update status text
+// ===============================
+static void updateStatusText()
 {
-  if (s_mqtt_broker[0] == '\0') {
-    return ConnectionState::BrokerNotConfigured;
-  }
-  return s_mqtt_client.connected() ? ConnectionState::Connected : ConnectionState::Disconnected;
+    if (!ui_TextArea1) return;
+
+    char buffer[128];
+    snprintf(buffer, sizeof(buffer),
+             "WiFi: %s\nMQTT: %s\n%s",
+             wifiConnected ? "connected" : "disconnected",
+             mqttConnected ? "connected" : "disconnected",
+             MQTT_TOPIC_STATUS);
+
+    lv_textarea_set_text(ui_TextArea1, buffer);
 }
 
-static void refresh_state_text()
+// ===============================
+// Refresh connection flags & UI
+// ===============================
+static void refreshConnectionStatus()
 {
-  if (!ui_TextArea1) {
-    return;
-  }
+    bool currentWifi = (WiFi.status() == WL_CONNECTED);
+    bool currentMqtt = mqttClient.connected();
 
-  ConnectionState current = compute_connection_state();
-  if (!s_force_status_update && current == s_last_connection_state) {
-    return;
-  }
-
-  const char *status = nullptr;
-  switch (current) {
-    case ConnectionState::Connected:
-      status = "Connected";
-      break;
-    case ConnectionState::Disconnected:
-      status = "Disconnected";
-      break;
-    case ConnectionState::BrokerNotConfigured:
-    default:
-      status = "Broker not configured";
-      break;
-  }
-
-  char buffer[128];
-  snprintf(buffer, sizeof(buffer), "MQTT %s\n%s", status, s_mqtt_status_topic);
-  lv_textarea_set_text(ui_TextArea1, buffer);
-  s_last_connection_state = current;
-  s_force_status_update = false;
+    if (currentWifi != wifiConnected || currentMqtt != mqttConnected) {
+        wifiConnected = currentWifi;
+        mqttConnected = currentMqtt;
+        updateStatusText();
+    }
 }
 
-static bool payload_indicates_on(const unsigned char *payload, unsigned int length)
+// ===============================
+// WiFi connect (no #ifdef checks, uses #define directly)
+// ===============================
+static void connectToWiFi()
 {
-  if (length == 0 || payload == nullptr) {
-    return false;
-  }
-  char temp[16];
-  unsigned int copy_len = length < (sizeof(temp) - 1) ? length : (sizeof(temp) - 1);
-  memcpy(temp, payload, copy_len);
-  temp[copy_len] = '\0';
-  for (unsigned int i = 0; i < copy_len; ++i) {
-    temp[i] = static_cast<char>(tolower(static_cast<unsigned char>(temp[i])));
-  }
+    if (WiFi.status() == WL_CONNECTED) {
+        return;
+    }
 
-  return (strcmp(temp, "1") == 0) || (strcmp(temp, "on") == 0) || (strcmp(temp, "true") == 0) ||
-         (strcmp(temp, "high") == 0);
+    unsigned long now = millis();
+    if (lastWifiAttempt != 0 &&
+        (now - lastWifiAttempt) < WIFI_RETRY_DELAY_MS) {
+        // wait until retry delay passes
+        return;
+    }
+
+    Serial.printf("Connecting to WiFi SSID: %s\n", WIFI_SSID);
+    WiFi.mode(WIFI_MODE_STA);
+    WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+
+    lastWifiAttempt = now;
 }
 
-static void mqtt_message_callback(char *topic, unsigned char *payload, unsigned int length)
+// ===============================
+// MQTT connect
+// ===============================
+static void connectToMQTT()
 {
-  if (strcmp(topic, s_mqtt_status_topic) == 0) {
-    const bool on = payload_indicates_on(payload, length);
+    if (mqttClient.connected()) {
+        return;
+    }
+    if (!wifiConnected) {
+        return;
+    }
+
+    Serial.printf("Connecting to MQTT broker: %s\n", MQTT_BROKER_HOST);
+    if (mqttClient.connect(mqttClientId, MQTT_USERNAME, MQTT_PASSWORD)) {
+        Serial.println("MQTT connected");
+        mqttClient.subscribe(MQTT_TOPIC_STATUS);  // subscribe to status topic
+    } else {
+        Serial.printf("MQTT connect failed: %d\n", mqttClient.state());
+    }
+}
+
+// ===============================
+// Helper: interpret MQTT payload as ON/OFF
+// ===============================
+static bool payloadIndicatesOn(const unsigned char *payload, unsigned int length)
+{
+    if (length == 0 || payload == nullptr) {
+        return false;
+    }
+
+    char temp[16];
+    unsigned int copy_len = length < (sizeof(temp) - 1) ? length : (sizeof(temp) - 1);
+    memcpy(temp, payload, copy_len);
+    temp[copy_len] = '\0';
+
+    // lowercase
+    for (unsigned int i = 0; i < copy_len; ++i) {
+        temp[i] = static_cast<char>(tolower(static_cast<unsigned char>(temp[i])));
+    }
+
+    return (strcmp(temp, "1") == 0)   ||
+           (strcmp(temp, "on") == 0)  ||
+           (strcmp(temp, "true") == 0)||
+           (strcmp(temp, "high") == 0);
+}
+
+// ===============================
+// Apply new lamp state coming from MQTT
+// ===============================
+static void applyLampStateFromMqtt(bool on)
+{
+    if (on == lampState) {
+        return;
+    }
+
+    lampState = on;
+
+    // Use SwitchControl to update LVGL switch without causing extra callbacks
+    suppressSwitchEvt = true;
     SwitchControl_SetFromMqtt(on);
-  }
+    suppressSwitchEvt = false;
 }
 
-static void publish_lamp_request(bool on)
+// ===============================
+// MQTT message callback
+// ===============================
+static void mqttMessageCallback(char *topic, unsigned char *payload, unsigned int length)
 {
-  if (!s_mqtt_client.connected() || s_mqtt_request_topic[0] == '\0') {
-    return;
-  }
-  const char *payload = on ? "on" : "off";
-  s_mqtt_client.publish(s_mqtt_request_topic, payload, true);
+    if (!topic) return;
+
+    if (strcmp(topic, MQTT_TOPIC_STATUS) != 0) {
+        // ignore other topics
+        return;
+    }
+
+    bool newState = payloadIndicatesOn(payload, length);
+    applyLampStateFromMqtt(newState);
 }
 
-static void try_reconnect_mqtt()
+// ===============================
+// Publish lamp request when UI switch changes
+// (this is passed to SwitchControl_Init)
+// ===============================
+static void publishLampRequest(bool on)
 {
-  if (s_mqtt_broker[0] == '\0') {
-    return;
-  }
-  if (WiFi.status() != WL_CONNECTED) {
-    return;
-  }
+    lampState = on; // keep local state in sync
 
-  if (s_mqtt_client.connected()) {
-    return;
-  }
+    if (!mqttClient.connected()) {
+        return;
+    }
 
-  Serial.printf("Connecting MQTT %s\n", s_mqtt_broker);
-  if (s_mqtt_client.connect(s_mqtt_client_id, MQTT_USERNAME, MQTT_PASSWORD)) {
-    s_mqtt_client.subscribe(s_mqtt_status_topic);
-    s_force_status_update = true;
-  } else {
-    Serial.printf("MQTT connect failed: %d\n", s_mqtt_client.state());
-  }
+    const char *payload = on ? "on" : "off";
+    mqttClient.publish(MQTT_TOPIC_REQUEST, payload, true);
 }
 
-static void configure_network()
+// ===============================
+// Network configuration (MQTT server + callback)
+// ===============================
+static void configureNetwork()
 {
-  if (WIFI_SSID[0] == '\0') {
-    Serial.println("WiFi SSID not configured");
-    return;
-  }
-  WiFi.mode(WIFI_MODE_STA);
-  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+    mqttClient.setServer(MQTT_BROKER_HOST, MQTT_BROKER_PORT);
+    mqttClient.setCallback(mqttMessageCallback);
+
+    // initial WiFi attempt
+    connectToWiFi();
 }
 
+// ===============================
+// Public API: AppInit / AppLoop / AppIsMqttConnected
+// ===============================
 void AppInit()
 {
-  Serial.println("AppInit");
-  I2C_Init();
-  Backlight_Init();
-  Set_Backlight(60);
-  TCA9554PWR_Init();
-  LCD_Init();
-  SD_Init();
-  Audio_Init();
-  PCF85063_Init();
-  QMI8658_Init();
-  Lvgl_Init();
-  SwitchControl_Init(publish_lamp_request);
-  ui_init();
-  SwitchControl_RegisterSwitch(ui_Switch1);
-  configure_network();
-  if (s_mqtt_broker[0] != '\0') {
-    s_mqtt_client.setServer(s_mqtt_broker, MQTT_PORT);
-  }
-  s_mqtt_client.setCallback(mqtt_message_callback);
-  prepare_mqtt_client_id();
-  s_force_status_update = true;
-  s_last_connection_state = ConnectionState::BrokerNotConfigured;
+    Serial.println("AppInit");
+
+    // Hardware + LVGL init
+    I2C_Init();
+    Backlight_Init();
+    Set_Backlight(60);
+    TCA9554PWR_Init();
+    LCD_Init();
+    Lvgl_Init();
+
+    // SwitchControl: this will call publishLampRequest when UI switch is used
+    SwitchControl_Init(publishLampRequest);
+
+    ui_init();
+
+    // Register the LVGL switch so SwitchControl can control it
+    // (adjust ui_Switch1 if your object has another name)
+    SwitchControl_RegisterSwitch(ui_Switch1);
+
+    // WiFi / MQTT
+    prepare_mqtt_client_id();
+    configureNetwork();
+
+    // Initial connection status display
+    refreshConnectionStatus();
+    updateStatusText();
 }
 
 void AppLoop()
 {
-  if (s_mqtt_broker[0] != '\0' && (WiFi.status() == WL_CONNECTED)) {
-    unsigned long now = millis();
-    if (now - s_last_mqtt_reconnect > s_mqtt_reconnect_interval_ms) {
-      s_last_mqtt_reconnect = now;
-      try_reconnect_mqtt();
-    }
-  }
+    // Keep status flags and UI up to date
+    refreshConnectionStatus();
 
-  s_mqtt_client.loop();
-  refresh_state_text();
+    // Reconnect WiFi if needed
+    if (!wifiConnected) {
+        connectToWiFi();
+    }
+
+    // Reconnect MQTT if needed
+    connectToMQTT();
+
+    // Process incoming MQTT messages
+    if (mqttClient.connected()) {
+        mqttClient.loop();
+    }
+
+    // LVGL timing / drawing is handled by your LVGL driver elsewhere
 }
 
 bool AppIsMqttConnected()
 {
-  return s_mqtt_client.connected();
+    return mqttClient.connected();
 }
