@@ -14,7 +14,7 @@ void ui_event_Second(lv_event_t * e)
 
     if(event_code == LV_EVENT_GESTURE &&  lv_indev_get_gesture_dir(lv_indev_get_act()) == LV_DIR_RIGHT) {
         lv_indev_wait_release(lv_indev_get_act());
-        _ui_screen_change(&ui_Main, LV_SCR_LOAD_ANIM_FADE_ON, 500, 0, &ui_Main_screen_init);
+        _ui_screen_change(&ui_Main, LV_SCR_LOAD_ANIM_FADE_ON, 20, 0, &ui_Main_screen_init);
     }
 }
 
@@ -29,9 +29,9 @@ void ui_Second_screen_init(void)
     lv_obj_set_width(ui_Label2, LV_SIZE_CONTENT);   /// 1
     lv_obj_set_height(ui_Label2, LV_SIZE_CONTENT);    /// 1
     lv_obj_set_x(ui_Label2, 0);
-    lv_obj_set_y(ui_Label2, -40);
+    lv_obj_set_y(ui_Label2, 0);
     lv_obj_set_align(ui_Label2, LV_ALIGN_CENTER);
-    lv_label_set_text(ui_Label2, "               swipe back \nto go back to the Main page ");
+    lv_label_set_text(ui_Label2, "swipe right \nto go back ");
 
     lv_obj_add_event_cb(ui_Second, ui_event_Second, LV_EVENT_ALL, NULL);
 

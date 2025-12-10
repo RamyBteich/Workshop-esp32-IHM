@@ -14,7 +14,7 @@ void ui_event_Button1(lv_event_t * e)
     lv_event_code_t event_code = lv_event_get_code(e);
 
     if(event_code == LV_EVENT_CLICKED) {
-        _ui_screen_change(&ui_Second, LV_SCR_LOAD_ANIM_FADE_ON, 200, 0, &ui_Second_screen_init);
+        _ui_screen_change(&ui_Second, LV_SCR_LOAD_ANIM_FADE_ON, 20, 0, &ui_Second_screen_init);
     }
 }
 
@@ -31,7 +31,7 @@ void ui_Main_screen_init(void)
     lv_obj_set_x(ui_Label1, 0);
     lv_obj_set_y(ui_Label1, -56);
     lv_obj_set_align(ui_Label1, LV_ALIGN_CENTER);
-    lv_label_set_text(ui_Label1, "Weclom to the Main page \n\n   Press the button to go\n   to the next page ");
+    lv_label_set_text(ui_Label1, "Weclom to the Main page \n\n   Press the button to go\n          to the next page ");
 
     ui_Button1 = lv_btn_create(ui_Main);
     lv_obj_set_width(ui_Button1, 100);
