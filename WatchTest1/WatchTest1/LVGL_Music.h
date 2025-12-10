@@ -3,9 +3,9 @@
  *      INCLUDES
  *********************/
 // #include <demos/music/lv_demo_music_list.h>
+#include <lvgl.h>
 #include <demos/music/lv_demo_music.h>
 #include <demos/lv_demos.h>
-#include <lvgl.h>
 #include <demos/music/assets/spectrum_1.h>
 #include <demos/music/assets/spectrum_2.h>
 #include <demos/music/assets/spectrum_3.h>
