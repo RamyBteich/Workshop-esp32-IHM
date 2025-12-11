@@ -55,7 +55,6 @@ static void touch_read(lv_indev_drv_t * indev_drv, lv_indev_data_t * data)
 }
 
 static void updateStatusText(void) 
-
 {
     if (!ui_TextArea1) return;
     char buffer[64];
@@ -68,7 +67,6 @@ static void updateStatusText(void)
 }
 
 static void refreshConnectionStatus(void) // MET À JOUR LES VARIABLES wifiConnected ET mqttConnected
-
 {
     bool currentWifi = WiFi.status() == WL_CONNECTED;
     bool currentMqtt = mqttClient.connected();
@@ -94,7 +92,6 @@ static void connectToWiFi(void)  // CONNEXION AU WiFi
 }
 
 static void connectToMQTT(void) // CONNEXION AU BROKER MQTT
-
 {
     if (mqttClient.connected() || !wifiConnected) return;
 
@@ -103,12 +100,12 @@ static void connectToMQTT(void) // CONNEXION AU BROKER MQTT
     }
 }
 
-static void onMQTTMessage(char* topic, byte* payload, unsigned int length) // CALLBACK MQTT (réception d’un message)
+static void onMQTTMessage(char* topic, byte* payload, unsigned int length) // CALLBACK MQTT (réception d’un message) update ui lors d'un changement de l'état de la lampe
 {
-    if (!topic || strcmp(topic, MQTT_TOPIC_STATUS) != 0) return;
+    if (!topic || strcmp(topic, MQTT_TOPIC_STATUS) != 0) return; // si le message vien du bon topic
 
     // Compare "on" ou "off"
-    bool newState = (strncmp((char*)payload, "on", 2) == 0);
+    bool newState = (strncmp((char*)payload, "on", 2) == 0); //si c on allumée sinon éteinte
 
     
     if (newState != lampState) {
@@ -119,9 +116,9 @@ static void onMQTTMessage(char* topic, byte* payload, unsigned int length) // CA
     }
 }
 
-static void updateLampSwitch(bool on) // MET À JOUR L’INTERRUPTEUR LVGL SELON l'état
+static void updateLampSwitch(bool on) // MET À JOUR L’INTERRUPTEUR LVGL SELON l'état (visuelle)
 {
-    if (!ui_offon_all_lamps) return;
+    if (!ui_offon_all_lamps) return; //si l'objet existe
 
     suppressSwitchEvent = true;
 
@@ -134,7 +131,7 @@ static void updateLampSwitch(bool on) // MET À JOUR L’INTERRUPTEUR LVGL SELON
     suppressSwitchEvent = false;
 }
 
-static void lampSwitchEvent(lv_event_t * e) // ÉVÈNEMENT UI : SWITCH ON/OFF 
+static void lampSwitchEvent(lv_event_t * e) // ÉVÈNEMENT UI : SWITCH ON/OFF quand on touche le switch 
 {
     if (lv_event_get_code(e) != LV_EVENT_VALUE_CHANGED || suppressSwitchEvent)
         return;
@@ -153,9 +150,7 @@ static void lampSwitchEvent(lv_event_t * e) // ÉVÈNEMENT UI : SWITCH ON/OFF
 }
 
 
-static void display_flush(lv_disp_drv_t * disp_drv,
-                          const lv_area_t * area,
-                          lv_color_t * px_map)
+static void display_flush(lv_disp_drv_t * disp_drv, const lv_area_t * area, lv_color_t * px_map)
 {
     uint32_t width  = (area->x2 - area->x1 + 1);
     uint32_t height = (area->y2 - area->y1 + 1);
@@ -189,21 +184,17 @@ void setup()
     // ----- Driver d’affichage -----
     static lv_disp_drv_t disp_drv;
     lv_disp_drv_init(&disp_drv);
-
     disp_drv.hor_res  = hor_res;
     disp_drv.ver_res  = ver_res;
     disp_drv.draw_buf = &draw_buf;
     disp_drv.flush_cb = display_flush;
-
     lv_disp_drv_register(&disp_drv);
 
     // ----- Driver du tactile -----
     static lv_indev_drv_t indev_drv;
     lv_indev_drv_init(&indev_drv);
-
     indev_drv.type    = LV_INDEV_TYPE_POINTER;
     indev_drv.read_cb = touch_read;
-
     lv_indev_drv_register(&indev_drv);
 
     // ----- Interface SquareLine -----

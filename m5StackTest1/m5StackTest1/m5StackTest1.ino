@@ -65,7 +65,7 @@ void setup() {
 
 void loop() {
     M5.update();        
-    lv_tick_inc(5);     // Signale à LVGL que 5ms se sont écoulées
+    lv_tick_inc(5);     // Signale à LVGL que 5ms se sont écoulées (internal clock for lvgl )
     lv_timer_handler(); // Exécute les animations, événements, etc.
     delay(5);           
 }

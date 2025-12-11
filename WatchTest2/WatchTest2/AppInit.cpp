@@ -5,7 +5,6 @@
 #include "Display_SPD2010.h"
 #include "I2C_Driver.h"
 #include "LVGL_Driver.h"
-#include "SwitchControl.h"
 #include "TCA9554PWR.h"
 #include "ui.h"
 
@@ -18,57 +17,43 @@
 #include <cstdio>
 #include <cstring>
 
-// ===============================
-// WiFi / MQTT configuration
-// ===============================
-
-// --- WiFi configuration ---
+//  WiFi configuration 
 #define WIFI_SSID        "labo-stagiaire"
 #define WIFI_PASSWORD    "Uk0IHXsaTt4u"
 
-// --- MQTT configuration ---
+//  MQTT configuration 
 #define MQTT_BROKER_HOST "192.168.7.13"
 #define MQTT_BROKER_PORT 1883
 #define MQTT_CLIENT_ID   "rbteich"
 #define MQTT_USERNAME    NULL
 #define MQTT_PASSWORD    NULL
 
-// --- MQTT Topics ---
+//  MQTT Topics 
 static const char MQTT_TOPIC_STATUS[]  = "api/3/room/C102/lamp/all/id/1/indication";
 static const char MQTT_TOPIC_REQUEST[] = "api/3/room/C102/lamp/all/id/1/request";
 
-// ===============================
-// Global objects / state
-// ===============================
-
+// Réseaux / MQTT 
 static WiFiClient wifiClient;
 static PubSubClient mqttClient(wifiClient);
-
 static char mqttClientId[32];
 
-// Global state flags
-static bool wifiConnected     = false;
-static bool mqttConnected     = false;
-static bool lampState         = false;  // ON/OFF state of lamp
-static bool suppressSwitchEvt = false;  // avoid feedback loops
+// États système
+static bool wifiConnected       = false;
+static bool mqttConnected       = false;
+static bool lampState           = false; // état ON/OFF de la lampe
+static bool suppressSwitchEvent = false; // empêche les boucles d’évènements LVGL
 
 // WiFi retry timer
 static const unsigned long WIFI_RETRY_DELAY_MS = 5000;
 static unsigned long lastWifiAttempt           = 0;
 
-// ===============================
-// Helper: prepare unique MQTT client ID
-// ===============================
 static void prepare_mqtt_client_id()
 {
-    uint64_t chipid = ESP.getEfuseMac();
+    uint64_t chipid   = ESP.getEfuseMac();
     uint32_t short_id = static_cast<uint32_t>(chipid & 0xFFFFFFFF);
     snprintf(mqttClientId, sizeof(mqttClientId), "%s-%08X", MQTT_CLIENT_ID, short_id);
 }
 
-// ===============================
-// UI: update status text
-// ===============================
 static void updateStatusText()
 {
     if (!ui_TextArea1) return;
@@ -83,9 +68,6 @@ static void updateStatusText()
     lv_textarea_set_text(ui_TextArea1, buffer);
 }
 
-// ===============================
-// Refresh connection flags & UI
-// ===============================
 static void refreshConnectionStatus()
 {
     bool currentWifi = (WiFi.status() == WL_CONNECTED);
@@ -98,9 +80,6 @@ static void refreshConnectionStatus()
     }
 }
 
-// ===============================
-// WiFi connect (no #ifdef checks, uses #define directly)
-// ===============================
 static void connectToWiFi()
 {
     if (WiFi.status() == WL_CONNECTED) {
@@ -110,7 +89,6 @@ static void connectToWiFi()
     unsigned long now = millis();
     if (lastWifiAttempt != 0 &&
         (now - lastWifiAttempt) < WIFI_RETRY_DELAY_MS) {
-        // wait until retry delay passes
         return;
     }
 
@@ -121,9 +99,6 @@ static void connectToWiFi()
     lastWifiAttempt = now;
 }
 
-// ===============================
-// MQTT connect
-// ===============================
 static void connectToMQTT()
 {
     if (mqttClient.connected()) {
@@ -142,100 +117,89 @@ static void connectToMQTT()
     }
 }
 
-// ===============================
-// Helper: interpret MQTT payload as ON/OFF
-// ===============================
-static bool payloadIndicatesOn(const unsigned char *payload, unsigned int length)
+// Gestion du switch LVGL et de la lampe
+static void updateLampSwitch(bool on)
 {
-    if (length == 0 || payload == nullptr) {
-        return false;
-    }
+    
+    if (!ui_Switch1) return;
 
-    char temp[16];
-    unsigned int copy_len = length < (sizeof(temp) - 1) ? length : (sizeof(temp) - 1);
-    memcpy(temp, payload, copy_len);
-    temp[copy_len] = '\0';
+    suppressSwitchEvent = true;
 
-    // lowercase
-    for (unsigned int i = 0; i < copy_len; ++i) {
-        temp[i] = static_cast<char>(tolower(static_cast<unsigned char>(temp[i])));
-    }
+    if (on)
+        lv_obj_add_state(ui_Switch1, LV_STATE_CHECKED);
+    else
+        lv_obj_clear_state(ui_Switch1, LV_STATE_CHECKED);
 
-    return (strcmp(temp, "1") == 0)   ||
-           (strcmp(temp, "on") == 0)  ||
-           (strcmp(temp, "true") == 0)||
-           (strcmp(temp, "high") == 0);
+    lv_obj_invalidate(ui_Switch1); // redessine l’objet
+    suppressSwitchEvent = false;
 }
 
-// ===============================
-// Apply new lamp state coming from MQTT
-// ===============================
-static void applyLampStateFromMqtt(bool on)
-{
-    if (on == lampState) {
-        return;
-    }
-
-    lampState = on;
-
-    // Use SwitchControl to update LVGL switch without causing extra callbacks
-    suppressSwitchEvt = true;
-    SwitchControl_SetFromMqtt(on);
-    suppressSwitchEvt = false;
-}
-
-// ===============================
-// MQTT message callback
-// ===============================
-static void mqttMessageCallback(char *topic, unsigned char *payload, unsigned int length)
-{
-    if (!topic) return;
-
-    if (strcmp(topic, MQTT_TOPIC_STATUS) != 0) {
-        // ignore other topics
-        return;
-    }
-
-    bool newState = payloadIndicatesOn(payload, length);
-    applyLampStateFromMqtt(newState);
-}
-
-// ===============================
-// Publish lamp request when UI switch changes
-// (this is passed to SwitchControl_Init)
-// ===============================
 static void publishLampRequest(bool on)
 {
-    lampState = on; // keep local state in sync
+    lampState = on;
 
     if (!mqttClient.connected()) {
         return;
     }
 
     const char *payload = on ? "on" : "off";
+    // QoS 0 + retained true, comme ton ancienne version
     mqttClient.publish(MQTT_TOPIC_REQUEST, payload, true);
 }
 
-// ===============================
-// Network configuration (MQTT server + callback)
-// ===============================
+static void lampSwitchEvent(lv_event_t * e)
+{
+    if (lv_event_get_code(e) != LV_EVENT_VALUE_CHANGED || suppressSwitchEvent)
+        return;
+
+    lv_obj_t * target = lv_event_get_target(e);
+    bool on = lv_obj_has_state(target, LV_STATE_CHECKED);
+
+    if (on == lampState) return; // Aucun changement réel
+
+    // Mets à jour l’état local + envoie la commande MQTT
+    publishLampRequest(on);
+}
+
+static void onMQTTMessage(char *topic, uint8_t *payload, unsigned int length)
+{
+    if (!topic) return;
+
+    if (strcmp(topic, MQTT_TOPIC_STATUS) != 0) {
+        // ignore autres topics
+        return;
+    }
+
+    char temp[16];
+    unsigned int copy_len = (length < sizeof(temp) - 1) ? length : (sizeof(temp) - 1);
+    memcpy(temp, payload, copy_len);
+    temp[copy_len] = '\0';
+
+    for (unsigned int i = 0; i < copy_len; ++i) {
+        temp[i] = static_cast<char>(tolower(static_cast<unsigned char>(temp[i])));
+    }
+
+    bool newState = (strncmp(temp, "on", 2) == 0);
+
+    if (newState != lampState) {
+        lampState = newState;
+        updateLampSwitch(lampState); // mise à jour de l’UI
+    }
+}
+
+// Configuration réseau / MQTT
 static void configureNetwork()
 {
     mqttClient.setServer(MQTT_BROKER_HOST, MQTT_BROKER_PORT);
-    mqttClient.setCallback(mqttMessageCallback);
+    mqttClient.setCallback(onMQTTMessage);
 
-    // initial WiFi attempt
     connectToWiFi();
 }
 
-// ===============================
-// Public API: AppInit / AppLoop / AppIsMqttConnected
-// ===============================
 void AppInit()
 {
     Serial.println("AppInit");
 
-    // Hardware + LVGL init
     I2C_Init();
     Backlight_Init();
     Set_Backlight(60);
@@ -243,43 +207,34 @@ void AppInit()
     LCD_Init();
     Lvgl_Init();
 
-    // SwitchControl: this will call publishLampRequest when UI switch is used
-    SwitchControl_Init(publishLampRequest);
-
     ui_init();
 
-    // Register the LVGL switch so SwitchControl can control it
-    // (adjust ui_Switch1 if your object has another name)
-    SwitchControl_RegisterSwitch(ui_Switch1);
+    if (ui_Switch1) {
+        lv_obj_add_event_cb(ui_Switch1, lampSwitchEvent, LV_EVENT_VALUE_CHANGED, nullptr);
+        updateLampSwitch(lampState); 
+    }
 
-    // WiFi / MQTT
     prepare_mqtt_client_id();
     configureNetwork();
 
-    // Initial connection status display
     refreshConnectionStatus();
     updateStatusText();
 }
 
 void AppLoop()
 {
-    // Keep status flags and UI up to date
     refreshConnectionStatus();
 
-    // Reconnect WiFi if needed
     if (!wifiConnected) {
         connectToWiFi();
     }
 
-    // Reconnect MQTT if needed
     connectToMQTT();
 
-    // Process incoming MQTT messages
     if (mqttClient.connected()) {
         mqttClient.loop();
     }
 
-    // LVGL timing / drawing is handled by your LVGL driver elsewhere
 }
 
 bool AppIsMqttConnected()
