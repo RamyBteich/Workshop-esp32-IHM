@@ -30,7 +30,7 @@ Dans cet atelier, nous allons voir comment utiliser SquareLine Studio pour crée
 Pour le tutoriel sur la création ou l'ouverture d'un projet existant, consultez les diapositives de la présentation. Tout y est expliqué. \
 Cependant, il est important de noter que lors de l'exportation des fichiers .lvgl, il ne faut pas les exporter directement dans le dossier contenant le fichier .ino, car cela endommagerait tous les anciens fichiers présents dans ce dossier et entraînerait la réinstallation du fichier .lvgl, ce qui pourrait corrompre le fichier .ino. \
 Et pour la montre, nous devons copier le contenu du dossier des pilotes « esp32-s3-watch-drivers » dans le même dossier que le fichier .ino.
-\
+
 
 
 [Cela devrait ressembler à ceci](/image/workshop.png)
