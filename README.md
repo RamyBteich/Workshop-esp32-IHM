@@ -33,5 +33,4 @@ Et pour la montre, nous devons copier le contenu du dossier des pilotes « esp32
 \
 
 
-[Cela devrait ressembler à ceci : 
-](/home/ramy/Desktop/WorkShop/Workshop-esp32-IHM/workshop.png)
+[Cela devrait ressembler à ceci](/image/workshop.png)
